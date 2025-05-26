@@ -16,4 +16,4 @@ You can select the post type, define which meta keys to edit, and save changes f
 
 == Installation ==
 
-Upload the "Bulk Bulk Custom Fields Editor" plugin to your blog, activate it from the Plugins menu, then access the "Bulk Custom Fields Editor" menu in your WordPress admin dashboard.
+Upload the "Bulk Custom Fields Editor" plugin to your blog, activate it from the Plugins menu, then access the "Bulk Custom Fields Editor" menu in your WordPress admin dashboard.
