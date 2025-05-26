@@ -1,9 +1,12 @@
 <?php
 /**
  * Plugin Name: Bulk Custom Fields Editor
+ * Plugin URI: https://github.com/ugurtasar/bulk-custom-fields-editor
  * Description: Easily view and edit custom fields in bulk for any post type.
  * Version: 1.0
+ * Text Domain: bulk-custom-fields-editor
  * Author: ugurtasar
+ * Author URI: https://github.com/ugurtasar
  */
 
 if (!defined('ABSPATH')) exit;
