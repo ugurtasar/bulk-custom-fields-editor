@@ -75,17 +75,37 @@ class BulkCustomFieldsEditor {
         $meta_keys = $settings['meta_keys'];
         $posts_per_page = (int)$settings['posts_per_page'];
         $paged = isset($_GET['paged']) ? max(1, intval($_GET['paged'])) : 1;
-        $query = new WP_Query([
+        $search_query = isset($_GET['s']) ? sanitize_text_field($_GET['s']) : '';
+        $args = [
             'post_type' => $post_type,
             'posts_per_page' => $posts_per_page,
             'paged' => $paged,
-        ]);
-        echo '<div class="wrap"><h1>Bulk Custom Fields Editor</h1>';
+        ];
+
+        if ($search_query !== '') {
+            $args['s'] = $search_query;
+        }
+
+        $query = new WP_Query($args);
+
+        echo '<div class="wrap">';
+        echo '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">';
+        echo '<h1>Bulk Custom Fields Editor</h1>';
+        echo '<form method="get" action="' . esc_url(admin_url('admin.php')) . '" style="margin:0;">';
+        echo '<input type="hidden" name="page" value="' . esc_attr($_GET['page'] ?? '') . '">';
+        echo '<input type="search" name="s" value="' . esc_attr($search_query) . '" placeholder="Search posts..." class="wp-filter-search" style="margin-left:10px; max-width:250px;">';
+        echo '<input type="submit" class="button" value="Search">';
+        echo '</form>';
+        echo '</div>';
         echo '<form method="post" action="' . admin_url('admin-post.php') . '">';
         echo '<input type="hidden" name="action" value="bcfe_save_meta">';
         wp_nonce_field('bcfe_save_meta');
         echo '<input type="hidden" name="paged" value="' . esc_attr($paged) . '">';
-        echo '<table class="widefat fixed"><thead><tr><th>Title</th><th>Custom Fields</th></tr></thead><tbody>';
+        if ($search_query !== '') {
+            echo '<input type="hidden" name="s" value="' . esc_attr($search_query) . '">';
+        }
+        echo '<table class="widefat fixed">';
+        echo '<thead><tr><th>Title</th><th>Custom Fields</th></tr></thead><tbody>';
         foreach ($query->posts as $post) {
             echo '<tr><td><strong><a href="' . esc_url(get_edit_post_link($post->ID)) . '" target="_blank" rel="noopener noreferrer">' . esc_html($post->post_title) . '</a></strong></td><td>';
             foreach ($meta_keys as $key => $default) {
@@ -134,7 +154,6 @@ class BulkCustomFieldsEditor {
         echo '</div>';
     }
 
-
     public function save_bulk_meta() {
         if (!current_user_can('manage_options') || !check_admin_referer('bcfe_save_meta')) {
             wp_die('Unauthorized request.');
@@ -147,7 +166,14 @@ class BulkCustomFieldsEditor {
             }
         }
         $paged = isset($_POST['paged']) ? intval($_POST['paged']) : 1;
-        wp_redirect(add_query_arg(['paged' => $paged], admin_url('admin.php?page=bulk-custom-fields-editor')));
+        $search_query = isset($_POST['s']) ? sanitize_text_field($_POST['s']) : '';
+        $redirect_args = [
+            'paged' => $paged,
+        ];
+        if ($search_query !== '') {
+            $redirect_args['s'] = $search_query;
+        }
+        wp_redirect(add_query_arg($redirect_args, admin_url('admin.php?page=bulk-custom-fields-editor')));
         exit;
     }
 
