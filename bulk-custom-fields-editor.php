@@ -7,6 +7,8 @@
  * Text Domain: bulk-custom-fields-editor
  * Author: ugurtasar
  * Author URI: https://github.com/ugurtasar
+ * License:     GPLv2 or later
+ * License URI: http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  */
 
 if (!defined('ABSPATH')) exit;
@@ -100,7 +102,7 @@ class BulkCustomFieldsEditor {
         echo '<input type="submit" class="button" value="Search">';
         echo '</form>';
         echo '</div>';
-        echo '<form method="post" action="' . admin_url('admin-post.php') . '">';
+        echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '">';
         echo '<input type="hidden" name="action" value="bcfe_save_meta">';
         wp_nonce_field('bcfe_save_meta');
         echo '<input type="hidden" name="paged" value="' . esc_attr($paged) . '">';
@@ -176,7 +178,7 @@ class BulkCustomFieldsEditor {
         if ($search_query !== '') {
             $redirect_args['s'] = $search_query;
         }
-        wp_redirect(add_query_arg($redirect_args, admin_url('admin.php?page=bulk-custom-fields-editor')));
+        wp_redirect(add_query_arg($redirect_args, esc_url(admin_url('admin.php?page=bulk-custom-fields-editor'))));
         exit;
     }
 
