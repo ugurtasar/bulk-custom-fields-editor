@@ -92,6 +92,7 @@ class BulkCustomFieldsEditor {
     }
 
     public function export_json() {
+        if (!current_user_can('manage_options')) wp_die('Unauthorized');
         $settings = $this->get_settings();
         $meta_keys = array_keys($settings['meta_keys']);
         $post_type = $settings['post_type'];
