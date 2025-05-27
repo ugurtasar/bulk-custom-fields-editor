@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Bulk Custom Fields Editor
  * Plugin URI: https://github.com/ugurtasar/bulk-custom-fields-editor
- * Description: Easily view and edit custom fields in bulk for any post type.
+ * Description: This plugin allows you to easily view and edit custom fields in bulk for any post type directly from the WordPress admin. It also includes import and export functionality in JSON format.
  * Version: 1.0
  * Text Domain: bulk-custom-fields-editor
  * Author: ugurtasar
