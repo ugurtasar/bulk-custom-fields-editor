@@ -21,11 +21,22 @@ class BulkCustomFieldsEditor {
         add_action('admin_init', [$this, 'register_settings']);
         add_action('admin_post_bcfe_save_meta', [$this, 'save_bulk_meta']);
         add_action('admin_enqueue_scripts', [$this, 'enqueue_admin_scripts']);
+        add_action('admin_post_bcfe_export_json', [$this, 'export_json']);
+        add_action('admin_post_bcfe_import_json', [$this, 'handle_import_json']);
+        add_action('admin_notices', [$this, 'admin_notices']);
     }
 
     public function add_admin_pages() {
         add_menu_page('Bulk Custom Fields Editor', 'Bulk Custom Fields Editor', 'manage_options', 'bulk-custom-fields-editor', [$this, 'list_page'], 'dashicons-edit', 60);
         add_submenu_page('bulk-custom-fields-editor', 'Settings', 'Settings', 'manage_options', 'bulk-custom-fields-editor-settings', [$this, 'settings_page']);
+        add_submenu_page(
+            'bulk-custom-fields-editor',
+            'Import / Export',
+            'Import / Export',
+            'manage_options',
+            'bulk-custom-fields-editor-import-export',
+            [$this, 'import_export_page']
+        );
     }
 
     public function enqueue_admin_scripts($hook) {
@@ -39,6 +50,153 @@ class BulkCustomFieldsEditor {
             '1.0',
             true
         );
+    }
+
+    public function import_export_page() {
+        ?>
+        <div class="wrap">
+            <h1>Import / Export</h1>
+            <h2>Export</h2>
+            <form method="post" action="<?php echo admin_url('admin-post.php'); ?>">
+                <input type="hidden" name="action" value="bcfe_export_json">
+                <?php submit_button('Export JSON'); ?>
+            </form>
+            <hr>
+            <h2>Import</h2>
+            <form method="post" enctype="multipart/form-data" action="<?php echo admin_url('admin-post.php'); ?>">
+                <input type="hidden" name="action" value="bcfe_import_json">
+
+                <p>
+                    <label for="import_file">JSON File:</label><br>
+                    <input type="file" name="import_file" id="import_file" required>
+                </p>
+
+                <p>
+                    <label for="match_type">Match by:</label><br>
+                    <select name="match_type" id="match_type" onchange="document.getElementById('meta-key-field').style.display = this.value === 'meta' ? 'block' : 'none';">
+                        <option value="title">Title</option>
+                        <option value="permalink">Permalink</option>
+                        <option value="meta">Meta Key</option>
+                    </select>
+                </p>
+
+                <p id="meta-key-field" style="display:none;">
+                    <label for="match_meta_key">Meta Key:</label><br>
+                    <input type="text" name="match_meta_key" id="match_meta_key">
+                </p>
+
+                <?php submit_button('Import JSON'); ?>
+            </form>
+        </div>
+        <?php
+    }
+
+    public function export_json() {
+        $settings = $this->get_settings();
+        $meta_keys = array_keys($settings['meta_keys']);
+        $post_type = $settings['post_type'];
+
+        $query = new WP_Query([
+            'post_type' => $post_type,
+            'posts_per_page' => -1,
+        ]);
+
+        $data = [];
+        foreach ($query->posts as $post) {
+            $item = [
+                'ID' => $post->ID,
+                'title' => $post->post_title,
+                'permalink' => get_permalink($post),
+                'meta' => [],
+            ];
+            foreach ($meta_keys as $key) {
+                $item['meta'][$key] = get_post_meta($post->ID, $key, true);
+            }
+            $data[] = $item;
+        }
+
+        header('Content-Type: application/json');
+        header('Content-Disposition: attachment; filename=export.json');
+        echo json_encode($data);
+        exit;
+    }
+
+    public function admin_notices() {
+        if (isset($_GET['import']) && $_GET['import'] === 'success') {
+            echo '<div class="notice notice-success is-dismissible">
+                <p>Import completed successfully.</p>
+            </div>';
+        }
+        if (isset($_GET['import']) && $_GET['import'] === 'error') {
+            echo '<div class="notice notice-error is-dismissible">
+                <p>There was a problem with the import file.</p>
+            </div>';
+        }
+        if (isset($_GET['save']) && $_GET['save'] === 'success') {
+            echo '<div class="notice notice-success is-dismissible">
+                <p>Changes saved successfully.</p>
+            </div>';
+        }
+        if (isset($_GET['settings-updated']) && $_GET['settings-updated'] === 'true') {
+            echo '<div class="notice notice-success is-dismissible">
+                <p>Settings saved successfully.</p>
+            </div>';
+        }
+    }
+
+    public function handle_import_json() {
+        if (!current_user_can('manage_options')) wp_die('Unauthorized');
+
+        if (!isset($_FILES['import_file']) || $_FILES['import_file']['error'] !== UPLOAD_ERR_OK) {
+            wp_die('Invalid file.');
+        }
+
+        $match_type = $_POST['match_type'] ?? 'title';
+        $match_meta_key = sanitize_text_field($_POST['match_meta_key'] ?? '');
+
+        $json = file_get_contents($_FILES['import_file']['tmp_name']);
+        $items = json_decode($json, true);
+        if (!is_array($items)) wp_die('Invalid JSON format.');
+
+        foreach ($items as $item) {
+            $post_id = null;
+
+            switch ($match_type) {
+                case 'title':
+                    $post = get_page_by_title($item['title'], OBJECT, $this->get_settings()['post_type']);
+                    if ($post) $post_id = $post->ID;
+                    break;
+                case 'permalink':
+                    $url = $item['permalink'] ?? '';
+                    $id = url_to_postid($url);
+                    if ($id) $post_id = $id;
+                    break;
+                case 'meta':
+                    $meta_value = $item['meta'][$match_meta_key] ?? '';
+                    $args = [
+                        'post_type' => $this->get_settings()['post_type'],
+                        'meta_query' => [
+                            [
+                                'key' => $match_meta_key,
+                                'value' => $meta_value,
+                                'compare' => '='
+                            ]
+                        ],
+                        'posts_per_page' => 1
+                    ];
+                    $query = new WP_Query($args);
+                    if ($query->have_posts()) $post_id = $query->posts[0]->ID;
+                    break;
+            }
+
+            if ($post_id && !empty($item['meta'])) {
+                foreach ($item['meta'] as $key => $val) {
+                    update_post_meta($post_id, $key, sanitize_text_field($val));
+                }
+            }
+        }
+        wp_redirect(admin_url('admin.php?page=bulk-custom-fields-editor-import-export&import=success'));
+        exit;
     }
 
     public function register_settings() {
@@ -86,22 +244,20 @@ class BulkCustomFieldsEditor {
             'posts_per_page' => $posts_per_page,
             'paged' => $paged,
         ];
-
         if ($search_query !== '') {
             $args['s'] = $search_query;
         }
-
         $query = new WP_Query($args);
-
         echo '<div class="wrap">';
-        echo '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">';
         echo '<h1>Bulk Custom Fields Editor</h1>';
-        echo '<form method="get" action="' . esc_url(admin_url('admin.php')) . '" style="margin:0;">';
+        echo '<form method="get" action="' . esc_url(admin_url('admin.php')) . '" class="search-form" style="margin:0;">';
+        echo '<p class="search-box">';
+        echo '<label class="screen-reader-text" for="post-search-input">Search Posts:</label>';
         echo '<input type="hidden" name="page" value="' . esc_attr($_GET['page'] ?? '') . '">';
-        echo '<input type="search" name="s" value="' . esc_attr($search_query) . '" placeholder="Search posts..." class="wp-filter-search" style="margin-left:10px; max-width:250px;">';
-        echo '<input type="submit" class="button" value="Search">';
+        echo '<input type="search" id="post-search-input" name="s" value="' . esc_attr($search_query) . '" />';
+        echo '<input type="submit" id="search-submit" class="button" value="Search">';
+        echo '</p>';
         echo '</form>';
-        echo '</div>';
         echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '">';
         echo '<input type="hidden" name="action" value="bcfe_save_meta">';
         wp_nonce_field('bcfe_save_meta');
@@ -174,6 +330,7 @@ class BulkCustomFieldsEditor {
         $search_query = isset($_POST['s']) ? sanitize_text_field($_POST['s']) : '';
         $redirect_args = [
             'paged' => $paged,
+            'save' => 'success',
         ];
         if ($search_query !== '') {
             $redirect_args['s'] = $search_query;
