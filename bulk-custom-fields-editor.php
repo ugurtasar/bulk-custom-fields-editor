@@ -117,7 +117,7 @@ class BulkCustomFieldsEditor {
         }
 
         header('Content-Type: application/json');
-        header('Content-Disposition: attachment; filename=export.json');
+        header('Content-Disposition: attachment; filename=export-bcfe.json');
         echo json_encode($data);
         exit;
     }
