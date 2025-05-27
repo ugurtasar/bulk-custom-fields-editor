@@ -6,7 +6,7 @@ Stable tag: 1.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-This plugin allows you to easily view and edit custom fields in bulk for any post type directly from the WordPress admin.
+This plugin allows you to easily view and edit custom fields in bulk for any post type directly from the WordPress admin. It also includes import and export functionality in JSON format, enabling you to seamlessly transfer and synchronize custom field data between different WordPress sites.
 
 == Description ==
 
